@@ -1,8 +1,26 @@
 from sqlalchemy .orm import Session
+from typing import Optional
+from datetime import date
 from . import models, schemas
 
-def get_tasks(db: Session):
-    return db.query(models.Task).all()
+
+def get_tasks(db: Session,
+              status: Optional[models.TaskStatus] = None,
+              due_date_from: Optional[date] = None,
+              due_date_to: Optional[date] = None,
+):
+    query = db.query(models.Task)
+
+    if status:
+        query = query.filter(models.Task.status == status)
+    if due_date_from:
+        query = query.filter(models.Task.due_date >= due_date_from)
+    if due_date_to:
+        query = query.filter(models.Task.due_date <= due_date_to)
+
+    return query.all()
+
+
 
 
 def get_task(db: Session, task_id: int):
