@@ -1,20 +1,21 @@
 from pydantic import BaseModel
-from typing import Optional
-from datetime import date
-from enum import Enum
+from sqlalchemy import Column, Integer, String, Date, Enum
+import enum
 
 
-class Status(str, Enum):
+class TaskStatus(str, enum.Enum):
     new = 'new'
     in_progress = 'in_progress'
     done = 'done'
 
 
 class Task(BaseModel):
-    id: int
-    title: str
-    description: Optional[str] = None
-    due_date: Optional[date] = None
-    status: Status = Status.new
+    __tablename__ = 'tasks'
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String, nullable=False)
+    description = Column(String)
+    due_date = Column(Date)
+    status = Column(Enum(TaskStatus), default='new')
 
 
