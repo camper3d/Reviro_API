@@ -1,7 +1,10 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
-from . import models, schemas, crud, database
+from typing import Optional, List
+from . import crud, database, models, schemas
+from datetime import date
+from .models import TaskStatus
 
 app = FastAPI()
 
@@ -15,12 +18,14 @@ def get_db():
     finally:
         db.close()
 
-@app.get('/tasks/{task_id}', response_model=schemas.TaskOut)
-def read_tasks(task_id: int, db: Session = Depends(get_db)):
-    task = crud.get_tasks(db, task_id)
-    if task is None:
-        raise HTTPException(status_code=404, detail='Задача не найдена')
-    return task
+@app.get('/tasks/{task_id}', response_model=List[schemas.TaskOut])
+def read_tasks(
+        status: Optional[TaskStatus],
+        due_date_from: Optional[date] = Query(None),
+        due_date_to: Optional[date] = Query(None),
+        db: Session = Depends(get_db),
+):
+    return crud.get_tasks(db, status, due_date_from, due_date_to)
 
 
 @app.post('/tasks', response_model=schemas.TaskOut)
