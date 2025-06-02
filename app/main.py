@@ -1,15 +1,46 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
+from fastapi.security import HTTPBearer
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional, List
 from . import crud, database, models, schemas
 from datetime import date
 from .models import TaskStatus
+from .auth import verify_token
+
 
 app = FastAPI()
 
 models.Base.metadata.create_all(bind=database.engine)
 
+bearer_scheme = HTTPBearer()
+
+app.openapi_schema = None
+
+def custom_openapi():
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    openapi_schema = app.openapi()
+
+    if "components" not in openapi_schema:
+        openapi_schema["components"] = {}
+
+    if "securitySchemes" not in openapi_schema["components"]:
+        openapi_schema["components"]["securitySchemes"] = {}
+
+    openapi_schema["components"]["securitySchemes"]["BearerAuth"] = {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+    }
+
+    for path in openapi_schema["paths"].values():
+        for method in path.values():
+            method.setdefault("security", []).append({"BearerAuth": []})
+
+    app.openapi_schema = openapi_schema
+    return app.openapi_schema
 
 def get_db():
     db = database.SessionLocal()
@@ -20,10 +51,11 @@ def get_db():
 
 @app.get('/tasks/{task_id}', response_model=List[schemas.TaskOut])
 def read_tasks(
-        status: Optional[TaskStatus],
+        status: Optional[TaskStatus] = Query(None),
         due_date_from: Optional[date] = Query(None),
         due_date_to: Optional[date] = Query(None),
         db: Session = Depends(get_db),
+        token: None = Depends(verify_token),
 ):
     return crud.get_tasks(db, status, due_date_from, due_date_to)
 
