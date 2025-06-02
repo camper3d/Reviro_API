@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from .database import Base
 from sqlalchemy import Column, Integer, String, Date, Enum
 import enum
 
@@ -9,7 +9,7 @@ class TaskStatus(str, enum.Enum):
     done = 'done'
 
 
-class Task(BaseModel):
+class Task(Base):
     __tablename__ = 'tasks'
 
     id = Column(Integer, primary_key=True, index=True)
