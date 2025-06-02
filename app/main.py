@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException, Depends, Query
 from fastapi.security import HTTPBearer
+from fastapi.openapi.utils import get_openapi
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError
 from typing import Optional, List
@@ -11,17 +12,20 @@ from .auth import verify_token
 
 app = FastAPI()
 
-models.Base.metadata.create_all(bind=database.engine)
+models.Base.metadata.create_all(bind=database.engine) # Создание таблиц на основе моделей в sqlite
 
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer() # инициализация авторизации
 
-app.openapi_schema = None
+app.openapi_schema = None # обнуляем схему, и меняем на свою
 
 def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
-
-    openapi_schema = app.openapi()
+    openapi_schema = get_openapi(
+        title="Your API",
+        version="1.0.0",
+        routes=app.routes,
+    )
 
     if "components" not in openapi_schema:
         openapi_schema["components"] = {}
@@ -42,6 +46,9 @@ def custom_openapi():
     app.openapi_schema = openapi_schema
     return app.openapi_schema
 
+app.openapi = custom_openapi # меняем стандартную схему на свою
+
+# получение сессии БД
 def get_db():
     db = database.SessionLocal()
     try:
@@ -49,7 +56,8 @@ def get_db():
     finally:
         db.close()
 
-@app.get('/tasks/{task_id}', response_model=List[schemas.TaskOut])
+# получение списка задач с фильтрами и авторизацией
+@app.get('/tasks', response_model=List[schemas.TaskOut])
 def read_tasks(
         status: Optional[TaskStatus] = Query(None),
         due_date_from: Optional[date] = Query(None),
@@ -59,7 +67,7 @@ def read_tasks(
 ):
     return crud.get_tasks(db, status, due_date_from, due_date_to)
 
-
+# создание задач
 @app.post('/tasks', response_model=schemas.TaskOut)
 def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     try:
@@ -70,7 +78,7 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f'Неправильный ввод: {str(e)}')
 
-
+# обновление задач
 @app.put('/tasks/{task_id}', response_model=schemas.TaskOut)
 def update_task(task_id: int, task: schemas.TaskUpdate, db: Session = Depends(get_db)):
     updated = crud.update_task(db, task_id, task)
@@ -78,6 +86,7 @@ def update_task(task_id: int, task: schemas.TaskUpdate, db: Session = Depends(ge
         raise HTTPException(status_code=404, detail='Задача не найдена')
     return updated
 
+# удаление задачи
 @app.delete('/tasks/{task_id}')
 def delete_task(task_id: int, db: Session = Depends(get_db)):
     deleted = crud.delete_task(db, task_id)

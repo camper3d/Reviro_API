@@ -1,8 +1,9 @@
 from fastapi import HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-security = HTTPBearer()
+security = HTTPBearer() # инициализация авторизации
 
+# Проверка токена
 def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
     token = credentials.credentials
     if token != 'ReviroTopCompany777':
